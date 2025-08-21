@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Phone Camera Test</title>
+  <style>
+    body { font-family: system-ui; margin: 0; padding: 16px; background: #0b1020; color: #e6e6f0; }
+    video { width: 90vw; border-radius: 12px; background: #000; }
+    button { background: #3c5cff; border: none; color: white; padding: 12px 16px; border-radius: 8px; cursor: pointer; font-size: 16px; margin: 8px; }
+    button:hover { background: #4c6cff; }
+    button:disabled { background: #666; cursor: not-allowed; }
+    #status { font-size: 14px; padding: 8px; border-radius: 4px; background: rgba(255,255,255,0.1); min-height: 20px; margin: 8px 0; }
+    .info { background: rgba(0,255,0,0.1); padding: 8px; border-radius: 4px; margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <h1>📱 Phone Camera Test</h1>
+  
+  <div class="info">
+    <strong>Current URL:</strong> <span id="currentUrl"></span><br>
+    <strong>Protocol:</strong> <span id="protocol"></span><br>
+    <strong>Host:</strong> <span id="hostname"></span>
+  </div>
+  
+  <div id="status">Checking browser support...</div>
+  
+  <button id="testCamera">Test Camera Access</button>
+  <button id="testWebRTC">Test WebRTC</button>
+  
+  <video id="video" autoplay muted playsinline></video>
+  
+  <div id="results"></div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const video = document.getElementById('video');
+    const resultsEl = document.getElementById('results');
+    
+    // Display current URL info
+    document.getElementById('currentUrl').textContent = location.href;
+    document.getElementById('protocol').textContent = location.protocol;
+    document.getElementById('hostname').textContent = location.hostname;
+    
+    function log(msg) {
+      console.log(msg);
+      resultsEl.innerHTML += `<div style="margin: 4px 0; padding: 4px; background: rgba(255,255,255,0.05); border-radius: 4px;">${msg}</div>`;
+    }
+    
+    function checkBrowserSupport() {
+      const warnings = [];
+      
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        warnings.push('❌ Camera API not supported');
+      } else {
+        log('✅ Camera API supported');
+      }
+      
+      if (!window.RTCPeerConnection) {
+        warnings.push('❌ WebRTC not supported');
+      } else {
+        log('✅ WebRTC supported');
+      }
+      
+      const isSecure = location.protocol === 'https:' || 
+                      location.hostname === 'localhost' || 
+                      location.hostname === '127.0.0.1' ||
+                      location.hostname.endsWith('.local');
+      
+      if (!isSecure) {
+        warnings.push('⚠️ HTTPS required for camera access from remote hosts');
+        log(`⚠️ Current: ${location.protocol}//${location.hostname} - HTTPS recommended for mobile`);
+      } else {
+        log('✅ Secure context detected');
+      }
+      
+      if (warnings.length > 0) {
+        statusEl.textContent = warnings.join(', ');
+        statusEl.style.color = '#ff6b6b';
+      } else {
+        statusEl.textContent = '✅ All checks passed - ready for camera access';
+        statusEl.style.color = '#51cf66';
+      }
+    }
+    
+    document.getElementById('testCamera').onclick = async () => {
+      try {
+        statusEl.textContent = 'Requesting camera access...';
+        log('🎥 Requesting camera access...');
+        
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }, 
+          audio: false 
+        });
+        
+        video.srcObject = stream;
+        statusEl.textContent = '✅ Camera access granted!';
+        statusEl.style.color = '#51cf66';
+        log('✅ Camera access granted successfully');
+        log(`📹 Video track: ${stream.getVideoTracks()[0].label}`);
+        
+      } catch (error) {
+        console.error('Camera error:', error);
+        let errorMsg = error.message;
+        
+        if (error.name === 'NotAllowedError') {
+          errorMsg = 'Camera permission denied. Please allow camera access.';
+        } else if (error.name === 'NotFoundError') {
+          errorMsg = 'No camera found on this device.';
+        } else if (error.name === 'NotSupportedError') {
+          errorMsg = 'Camera not supported in this browser.';
+        } else if (error.name === 'NotReadableError') {
+          errorMsg = 'Camera is busy or unavailable.';
+        }
+        
+        statusEl.textContent = `❌ Camera error: ${errorMsg}`;
+        statusEl.style.color = '#ff6b6b';
+        log(`❌ Camera error: ${errorMsg}`);
+      }
+    };
+    
+    document.getElementById('testWebRTC').onclick = async () => {
+      try {
+        log('🔗 Testing WebRTC connection...');
+        const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+        
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            log(`🧊 ICE candidate: ${event.candidate.type} ${event.candidate.candidate.substring(0, 50)}...`);
+          }
+        };
+        
+        pc.onconnectionstatechange = () => {
+          log(`🔗 Connection state: ${pc.connectionState}`);
+        };
+        
+        // Add video track if available
+        if (video.srcObject) {
+          video.srcObject.getTracks().forEach(track => {
+            pc.addTrack(track, video.srcObject);
+            log(`📹 Added track: ${track.kind} - ${track.label}`);
+          });
+        }
+        
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        log('✅ WebRTC offer created successfully');
+        log(`📋 SDP: ${offer.sdp.substring(0, 100)}...`);
+        
+      } catch (error) {
+        log(`❌ WebRTC error: ${error.message}`);
+      }
+    };
+    
+    // Run initial check
+    checkBrowserSupport();
+  </script>
+</body>
+</html>

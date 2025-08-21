@@ -1,0 +1,30 @@
+version: "3.8"
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    environment:
+      - MODE=${MODE:-wasm}
+      - HOST_IP=${HOST_IP}
+      - HTTPS=${HTTPS:-0}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      - ./web/models:/app/web/models
+      - ./certs:/app/certs
+
+  infer:
+    build:
+      context: .
+      dockerfile: Dockerfile.py
+    environment:
+      - PY_PORT=7000
+      - MODEL_PATH=/models/yolov5n.onnx
+    volumes:
+      - ./web/models:/models
+    ports:
+      - "7000:7000"
+    depends_on:
+      - web

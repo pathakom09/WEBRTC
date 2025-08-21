@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>API Test</title>
+  <style>
+    body { font-family: system-ui; margin: 20px; background: #0b1020; color: #e6e6f0; }
+    button { background: #3c5cff; border: none; color: white; padding: 12px 16px; border-radius: 8px; cursor: pointer; margin: 8px; }
+    #output { background: rgba(255,255,255,0.1); padding: 16px; border-radius: 8px; margin: 16px 0; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>API Test</h1>
+  
+  <button onclick="testRoomAPI()">Test Room API</button>
+  <button onclick="testBenchAPI()">Test Bench API</button>
+  <button onclick="clearOutput()">Clear</button>
+  
+  <div id="output"></div>
+
+  <script>
+    function log(msg) {
+      const output = document.getElementById('output');
+      output.textContent += new Date().toISOString() + ': ' + msg + '\n';
+    }
+    
+    function clearOutput() {
+      document.getElementById('output').textContent = '';
+    }
+    
+    async function testRoomAPI() {
+      try {
+        log('Testing room API...');
+        const response = await fetch('/api/room', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        
+        log(`Response status: ${response.status}`);
+        log(`Response headers: ${JSON.stringify([...response.headers])}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          log(`Success! Room data: ${JSON.stringify(data, null, 2)}`);
+          log(`Phone URL: ${data.phoneUrl}`);
+          log(`Viewer URL: ${data.viewerUrl}`);
+        } else {
+          const text = await response.text();
+          log(`Error response: ${text}`);
+        }
+      } catch (error) {
+        log(`Error: ${error.message}`);
+        log(`Stack: ${error.stack}`);
+      }
+    }
+    
+    async function testBenchAPI() {
+      try {
+        log('Testing bench API...');
+        const response = await fetch('/api/bench/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ duration: 5, mode: 'wasm' })
+        });
+        
+        log(`Response status: ${response.status}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          log(`Bench started: ${JSON.stringify(data, null, 2)}`);
+        } else {
+          const text = await response.text();
+          log(`Error response: ${text}`);
+        }
+      } catch (error) {
+        log(`Error: ${error.message}`);
+      }
+    }
+    
+    // Test on page load
+    log('Page loaded. Ready to test APIs.');
+    log(`Current URL: ${location.href}`);
+    log(`Protocol: ${location.protocol}`);
+  </script>
+</body>
+</html>
